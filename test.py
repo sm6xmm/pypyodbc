@@ -50,7 +50,9 @@ def main():
         print ('checking function call')
         res = cur.callproc('pypyodbc_test_in_out', (3,5,0))
         assert res == [3, 10, 8]
-        
+        res = cur.callproc('pypyodbc_test_return', ('foo',))
+        assert cur.fetchall() == [('foobar',)]
+
         print ('pypyodbc_test_tabl has been created. Now listing the columns:')
         for row in cur.columns(table='pypyodbc_test_tabl').fetchall():
             print row
@@ -311,6 +313,11 @@ if __name__ == "__main__":
         BEGIN
             outdata := indata + iodata;
             iodata := iodata + iodata;
+        END
+        $$ language plpgsql;
+        create or replace function pypyodbc_test_return(in indata text) returns text as $$
+        BEGIN
+            return (indata || 'bar');
         END
         $$ language plpgsql;
         """,

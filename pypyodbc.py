@@ -1597,9 +1597,9 @@ class Cursor:
                 check_success(self, ret)
             
 
-            if not many_mode:
-                if self._NumOfRows() >= 0:
-                    self._UpdateDesc()
+            if not many_mode and ret != SQL_NO_DATA:
+                self._NumOfRows()
+                self._UpdateDesc()
                 #self._BindCols()
             
         else:
@@ -1644,10 +1644,6 @@ class Cursor:
         proc = procname.split('.')[-1]
         self._pram_io_list = [row[4] for row in self.procedurecolumns(procedure = proc).fetchall() if row[4] not in (SQL_RESULT_COL, SQL_RETURN_VALUE)]
 
-        print('pram_io_list: '+str(self._pram_io_list))
-
-        
-        
         call_escape = '{CALL '+procname
         if args:
             call_escape += '(' + ','.join(['?' for params in args]) + ')'

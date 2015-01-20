@@ -6,8 +6,8 @@ from decimal import Decimal
 def main():
     for database_name, conn_string, create_table_sql in database_strings:
         source_to_test = [
-        'Access',
-        'SQLServer',
+        #'Access',
+        #'SQLServer',
         #'MySQL',
         'PostgreSQL'
         ]
@@ -18,7 +18,9 @@ def main():
             continue
         
         print 'Connecting database server with pypyodbc...'
-        conn = pypyodbc.connect(conn_string, ansi = False,  unicode_results = True, readonly = False, timeout = 2)
+        conn = pypyodbc.connect(conn_string, ansi = False,
+                                unicode_results = True, readonly = False,
+                                timeout = 2)
 
         print conn.getinfo(pypyodbc.SQL_SERVER_NAME)
         print conn.getinfo(pypyodbc.SQL_DATABASE_NAME)
@@ -32,7 +34,7 @@ def main():
         
         
         if has_table_data:
-            print 'pypyodbc_test_tabl exists. Dropping the existing pypyodbc_test_tabl now.',
+            print 'pypyodbc_test_tabl exists. Dropping.'
             cur = conn.cursor()
             cur.execute ('Drop table pypyodbc_test_tabl')
         else:
@@ -44,6 +46,10 @@ def main():
         else:
             cur.execute(create_table_sql)
         cur.commit()
+
+        print ('checking function call')
+        res = cur.callproc('pypyodbc_test_in_out', (3,5,0))
+        assert res == [3, 10, 8]
         
         print ('pypyodbc_test_tabl has been created. Now listing the columns:')
         for row in cur.columns(table='pypyodbc_test_tabl').fetchall():
@@ -53,18 +59,35 @@ def main():
         print 'Inserting rows now with execute()...  ',
         start_time = time.time()
         cur = conn.cursor()
-        cur.execute(u"insert into pypyodbc_test_tabl values(1,'Hello! 这是pypyodbc模块',12.3,1234.55,'2012-11-11','17:31:32','2012-11-11',NULL, ?)", (binary_logo,))
+        cur.execute(u"insert into pypyodbc_test_tabl "
+                    u"values(1,'Hello! 这是pypyodbc模块',12.3,1234.55,"
+                    u"'2012-11-11','17:31:32','2012-11-11',NULL, ?)",
+                    (binary_logo,))
+        cur.execute(u'select bin_logo from pypyodbc_test_tabl where ID = 1')
+        data = cur.fetchall()
+        assert data[0][-1] == binary_logo
 
         longtext = u''.join([u'我在马路边，捡到一分钱。']*25)
-        cur.execute("insert into pypyodbc_test_tabl values (?,?,?,?,NULL,NULL,NULL,NULL,?)", \
-                                (2, \
-                                longtext,\
-                                Decimal('1233.4513'), \
-                                123.44, \
-#                                datetime.datetime.now(), \
-#                                datetime.datetime.now().time(),\
-#                                datetime.date.today(),\
-                                mv))
+        cur.execute("insert into pypyodbc_test_tabl "
+                    "values (?,?,?,?,NULL,NULL,NULL,NULL,?)",
+                    (2,
+                     longtext,
+                     Decimal('1233.4513'),
+                     123.44,
+#                    datetime.datetime.now(),
+#                    datetime.datetime.now().time(),
+#                    datetime.date.today(),
+                     mv))
+        cur.execute('select * from pypyodbc_test_tabl where ID = ?', (2,))
+        data = cur.fetchall()
+
+        assert data[0] == (2,
+                           longtext,
+                           Decimal('1233.4513'),
+                           123.44,
+                           None, None, None, None,
+                           mv), data
+
         row_num = 1500
         print 'Inserting 5*'+str(row_num)+' rows now with executemany()...  ',
         for i in xrange(3,row_num):
@@ -89,23 +112,26 @@ def main():
 
         print 'Excute selecting from pypyodbc_test_tabl... '
         if database_name in ['Access','MySQL']:
-            # Access and MySQL do not support batch SQL, so can not test the nextset() method.
+            # Access and MySQL do not support batch SQL,
+            # so can not test the nextset() method.
             cur.execute(u"""select * from pypyodbc_test_tabl""")
             print cur.description
             
             
             #Get results
             field = cur.fetchone()[-1]#.bin_logo
-            file(cur_file_dir()+'\\logo_'+database_name+'.gif','wb').write(field)
+            file(os.path.join(cur_file_dir(), 'logo_'+database_name+'.gif'),
+                 'wb').write(field)
             field = cur.fetchone()[-1]#.bin_logo
-            file(cur_file_dir()+'\\logo2_'+database_name+'.gif','wb').write(field)
+            file(os.path.join(cur_file_dir(), 'logo2_'+database_name+'.gif'),
+                 'wb').write(field)
             
             
             
             for row in cur.fetchmany(6):
                 for field in row:
                     print type(field),
-                    if isinstance(field, unicode): print field.encode('mbcs'),
+                    if isinstance(field, unicode): print field.encode('utf-8'),
                     elif isinstance(field, bytearray): pass
                     else: print field,
                 print ('')
@@ -117,39 +143,46 @@ def main():
             cur = conn.cursor()
             start_time =  time.time()
             print 'Updating one column...',
-            cur.execute(u'update pypyodbc_test_tabl set 数量 = ? where 数量 > 0 '.encode('mbcs'),(time.time(),))
+            cur.execute(u'update pypyodbc_test_tabl set 数量 = ? where 数量 > 0 '
+                        .encode('utf-8'),(time.time(),))
             print 'Updated: '+str(cur.rowcount)+' rows',
             print ' Total time: '+ str(time.time()-start_time)
             
         else:
-            cur.execute(u"""select * from pypyodbc_test_tabl;update pypyodbc_test_tabl set kong = 5 where ID = 2;select ID, kong, riqi, product_name from pypyodbc_test_tabl where ID = 2 """)
+            cur.execute(u"""select * from pypyodbc_test_tabl;
+            update pypyodbc_test_tabl set kong = 5 where ID = 2;
+            select ID, kong, riqi, product_name
+              from pypyodbc_test_tabl where ID = 2 """)
             print cur.description
 
             
             #Get results
             field = cur.fetchone()[-1]#.bin_logo
-            file(cur_file_dir()+'\\logo_'+database_name+'.gif','wb').write(field)
+            file(os.path.join(cur_file_dir(), 'logo_'+database_name+'.gif'),
+                 'wb').write(field)
             field = cur.fetchone()[-1]#.bin_logo
-            file(cur_file_dir()+'\\logo2_'+database_name+'.gif','wb').write(field)
+            file(os.path.join(cur_file_dir(), 'logo2_'+database_name+'.gif'),
+                 'wb').write(field)
 
 
             
             for row in cur.fetchmany(6):
                 for field in row:
                     print type(field),
-                    if isinstance(field, unicode): print field.encode('mbcs'),
+                    if isinstance(field, unicode): print field.encode('utf-8'),
                     elif isinstance(field, bytearray): pass
                     else: print field,
                 print ('')
             
 
             cur.nextset()
-            print 'After calling nextset, get the information of updated: '+str(cur.rowcount)+' rows'
+            print ('After calling nextset, get the information of updated: '
+                   '%d rows' % cur.rowcount)
             cur.nextset()
             
             for field in cur.fetchone():
                 if isinstance(field, unicode):
-                    print field.encode('mbcs')+'\t',
+                    print field.encode('utf-8')+'\t',
                 elif isinstance(field, bytearray):
                         pass
                 else:
@@ -161,9 +194,10 @@ def main():
         cur.close()
         conn.commit()
         cur = conn.cursor()
-        for field in cur.execute(u"""select * from pypyodbc_test_tabl""").fetchone():
+        for field in cur.execute(u"select * from pypyodbc_test_tabl"
+        ).fetchone():
             if isinstance(field, unicode):
-                print field.encode('mbcs')+'\t',
+                print field.encode('utf-8')+'\t',
             elif isinstance(field, bytearray):
                     pass
             else:
@@ -213,7 +247,7 @@ binary_logo = bytearray(binary_data)
 mv = bytearray(binary_data)
 
 
-#c_Path = ctypes.create_string_buffer(u"CREATE_DB=.\\e.mdb General\0\0".encode('mbcs'))
+#c_Path = ctypes.create_string_buffer(u"CREATE_DB=.\\e.mdb General\0\0".encode('utf-8'))
 #ODBC_ADD_SYS_DSN = 1
 #ctypes.windll.ODBCCP32.SQLConfigDataSource(None,ODBC_ADD_SYS_DSN,"Microsoft Access Driver (*.mdb)", c_Path)
 
@@ -268,9 +302,18 @@ if __name__ == "__main__":
         
         ),
         ('PostgreSQL',
-        'DSN=PostgreSQL35W',
+        'DRIVER={PostgreSQL Unicode};SERVER=/var/run/postgresql;DATABASE=test_odbc;ByteaAsLongVarBinary=1',
         u"""create table pypyodbc_test_tabl (ID integer PRIMARY KEY,product_name text,数量 numeric(14,4),价格 float,日期 
-                        timestamp,shijian time,riqi date, kong float, bin_logo bytea)""",
+                        timestamp,shijian time,riqi date, kong float, bin_logo bytea);
+        create or replace function pypyodbc_test_in_out(in indata integer,
+                                                        inout iodata integer,
+                                                        out outdata integer) as $$
+        BEGIN
+            outdata := indata + iodata;
+            iodata := iodata + iodata;
+        END
+        $$ language plpgsql;
+        """,
         ),
         ]
         
@@ -286,5 +329,5 @@ if __name__ == "__main__":
     else:
         main()
     if hasattr(pypyodbc,'win_compact_mdb') and sys.platform in ('win32','cli'):
-        mdb_file_path = '"'+mdb_path.encode('mbcs')+'"'
+        mdb_file_path = '"'+mdb_path.encode('utf-8')+'"'
         pypyodbc.win_compact_mdb(mdb_file_path,mdb_file_path.replace('.mdb','_compact.mdb'))

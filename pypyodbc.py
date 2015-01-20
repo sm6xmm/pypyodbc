@@ -1598,8 +1598,8 @@ class Cursor:
             
 
             if not many_mode:
-                self._NumOfRows()
-                self._UpdateDesc()
+                if self._NumOfRows() >= 0:
+                    self._UpdateDesc()
                 #self._BindCols()
             
         else:
@@ -1639,9 +1639,11 @@ class Cursor:
     def callproc(self, procname, args):
         if not self.connection:
             self.close()
-        raise Warning('', 'Still not fully implemented')
-        self._pram_io_list = [row[4] for row in self.procedurecolumns(procedure = procname).fetchall() if row[4] not in (SQL_RESULT_COL, SQL_RETURN_VALUE)]
-        
+
+        #raise Warning('', 'Still not fully implemented')
+        proc = procname.split('.')[-1]
+        self._pram_io_list = [row[4] for row in self.procedurecolumns(procedure = proc).fetchall() if row[4] not in (SQL_RESULT_COL, SQL_RETURN_VALUE)]
+
         print('pram_io_list: '+str(self._pram_io_list))
 
         
